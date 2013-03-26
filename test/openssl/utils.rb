@@ -129,7 +129,17 @@ AQjjxMXhwULlmuR/K+WwlaZPiLIBYalLAZQ7ZbOPeVkJ8ePao0eLAgEC
     cert.serial = serial
     cert.subject = dn
     cert.issuer = issuer.subject
-    cert.public_key = key.public_key
+
+    # EC keys need special handeling 
+    case key.is_a?(OpenSSL::PKey::EC)
+    when true
+        ec_pub_key = OpenSSL::PKey::EC.new(key.group)
+        ec_pub_key.public_key = key.public_key
+        cert.public_key = ec_pub_key
+    else
+        cert.public_key = key.public_key
+    end
+
     cert.not_before = not_before
     cert.not_after = not_after
     ef = OpenSSL::X509::ExtensionFactory.new

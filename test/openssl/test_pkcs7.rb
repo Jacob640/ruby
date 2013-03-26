@@ -9,6 +9,12 @@ class OpenSSL::TestPKCS7 < Test::Unit::TestCase
     ca = OpenSSL::X509::Name.parse("/DC=org/DC=ruby-lang/CN=CA")
     ee1 = OpenSSL::X509::Name.parse("/DC=org/DC=ruby-lang/CN=EE1")
     ee2 = OpenSSL::X509::Name.parse("/DC=org/DC=ruby-lang/CN=EE2")
+    ee3 = OpenSSL::X509::Name.parse("/DC=org/DC=ruby-lang/CN=EE3")
+
+    # Generate EC Key
+    group_name = 'secp521r1'
+    @ec_key = OpenSSL::PKey::EC.new(group_name)
+    @ec_key = @ec_key.generate_key
 
     now = Time.now
     ca_exts = [
@@ -27,6 +33,8 @@ class OpenSSL::TestPKCS7 < Test::Unit::TestCase
     @ee1_cert = issue_cert(ee1, @rsa1024, 2, now, now+1800, ee_exts,
                            @ca_cert, @rsa2048, OpenSSL::Digest::SHA1.new)
     @ee2_cert = issue_cert(ee2, @rsa1024, 3, now, now+1800, ee_exts,
+                           @ca_cert, @rsa2048, OpenSSL::Digest::SHA1.new)
+    @ee3_cert = issue_cert(ee3, @ec_key, 4, now, now+1800, ee_exts,
                            @ca_cert, @rsa2048, OpenSSL::Digest::SHA1.new)
   end
 
@@ -52,6 +60,21 @@ class OpenSSL::TestPKCS7 < Test::Unit::TestCase
     assert_equal(1, signers.size)
     assert_equal(@ee1_cert.serial, signers[0].serial)
     assert_equal(@ee1_cert.issuer.to_s, signers[0].issuer.to_s)
+
+    #Test EC signing
+    data = "aaaaa\r\nbbbbb\r\nccccc\r\n"
+    tmp = OpenSSL::PKCS7.sign(@ee3_cert, @ec_key, data, ca_certs)
+    p7 = OpenSSL::PKCS7.new(tmp.to_der)
+    certs = p7.certificates
+    signers = p7.signers
+    assert(p7.verify([], store))
+    assert_equal(data, p7.data)
+    assert_equal(2, certs.size)
+    assert_equal(@ee3_cert.subject.to_s, certs[0].subject.to_s)
+    assert_equal(@ca_cert.subject.to_s, certs[1].subject.to_s)
+    assert_equal(1, signers.size)
+    assert_equal(@ee3_cert.serial, signers[0].serial)
+    assert_equal(@ee3_cert.issuer.to_s, signers[0].issuer.to_s)
 
     # Normaly OpenSSL tries to translate the supplied content into canonical
     # MIME format (e.g. a newline character is converted into CR+LF).
