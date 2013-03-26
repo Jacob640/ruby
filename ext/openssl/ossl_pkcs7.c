@@ -518,6 +518,27 @@ ossl_pkcs7_get_signer(VALUE self)
     return ary;
 }
 
+/*
+ * call-seq:
+ *    pkcs7.certificate_for_signer signer => x509
+ */
+static VALUE
+ossl_pkcs7_get_certificate_for_signer_info(VALUE self, VALUE signer)
+{
+    PKCS7 *p7;
+    PKCS7_SIGNER_INFO *si;
+    X509 *x509;
+
+    GetPKCS7(self, p7);
+    GetPKCS7si(signer, si);
+
+    if(!(x509 = PKCS7_cert_from_signer_info(p7, si)))
+    {
+        ossl_raise(ePKCS7Error, "No certificate matches signer info");
+    }
+    return ossl_x509_new(x509);
+}
+
 static VALUE
 ossl_pkcs7_add_recipient(VALUE self, VALUE recip)
 {
@@ -1014,6 +1035,8 @@ Init_ossl_pkcs7()
     rb_define_method(cPKCS7, "to_pem", ossl_pkcs7_to_pem, 0);
     rb_define_alias(cPKCS7,  "to_s", "to_pem");
     rb_define_method(cPKCS7, "to_der", ossl_pkcs7_to_der, 0);
+    rb_define_method(cPKCS7, "certificate_for_signer_info", ossl_pkcs7_get_certificate_for_signer_info, 1);
+
 
     cPKCS7Signer = rb_define_class_under(cPKCS7, "SignerInfo", rb_cObject);
     rb_define_const(cPKCS7, "Signer", cPKCS7Signer);
